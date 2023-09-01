@@ -6,45 +6,23 @@ namespace CodeBase.TemporalSystem {
     public class TimeScalableRigidbody2D : MonoBehaviour {
         private Rigidbody2D _body;
         private PersonalTimeProvider _timeProvider;
-        private TimeScaledBodyData _timeScaledBodyData;
+        private float _lastTimeScale = 1;
 
         private void Awake() {
             _body = GetComponent<Rigidbody2D>();
             _timeProvider = GetComponent<PersonalTimeProvider>();
+            _timeProvider.ScaleChanged += AdaptForNewScale;
         }
 
-        private void Start() {
-            _timeScaledBodyData = new TimeScaledBodyData() {
-                UnscaledMass = _body.mass,
-                UnscaledGravity = _body.gravityScale,
+        private void Start() => AdaptForNewScale();
+        private void OnDestroy() => _timeProvider.ScaleChanged -= AdaptForNewScale;
 
-                UnscaledLinearVelocity = _body.velocity,
-                UnscaledAngularVelocity = _body.angularVelocity,
+        private void AdaptForNewScale() {
+            _body.velocity *= _timeProvider.TimeScale/_lastTimeScale;
+            _body.angularVelocity *= _timeProvider.TimeScale/_lastTimeScale;
+            _body.gravityScale *= Mathf.Pow(_timeProvider.TimeScale, 2) / Mathf.Pow(_lastTimeScale, 2);
 
-                LastLinearVelocity = _body.velocity * _timeProvider.TimeScale,
-                LastAngularVelocity = _body.angularVelocity * _timeProvider.TimeScale,        
-            };
-
-            UpdateRigidbody();
-        }
-
-        private void FixedUpdate() {
-            Vector2 linearAcceleration = _body.velocity - _timeScaledBodyData.LastLinearVelocity;
-            _timeScaledBodyData.UnscaledLinearVelocity += linearAcceleration;
-            _timeScaledBodyData.LastLinearVelocity = _timeScaledBodyData.UnscaledLinearVelocity * _timeProvider.TimeScale;
-
-            float angularAcceleration = _body.angularVelocity - _timeScaledBodyData.LastAngularVelocity;
-            _timeScaledBodyData.UnscaledAngularVelocity += angularAcceleration;
-            _timeScaledBodyData.LastAngularVelocity = _timeScaledBodyData.UnscaledAngularVelocity * _timeProvider.TimeScale;
-            
-            UpdateRigidbody();
-        }
-
-        private void UpdateRigidbody() {
-            _body.mass = _timeScaledBodyData.UnscaledMass / _timeProvider.TimeScale;
-            _body.gravityScale = _timeScaledBodyData.UnscaledGravity * _timeProvider.TimeScale;
-            _body.velocity = _timeScaledBodyData.LastLinearVelocity;
-            _body.angularVelocity = _timeScaledBodyData.LastAngularVelocity;
+            _lastTimeScale = _timeProvider.TimeScale;
         }
     }
 }
